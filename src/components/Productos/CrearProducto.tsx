@@ -10,18 +10,45 @@ const CrearProducto: React.FC = () => {
   const [marca, setMarca] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [categoria, setCategoria] = useState("");
-  const [categorias, setCategorias] = useState<string[]>([]); // Lista de categorías
+  const [categorias, setCategorias] = useState<{ value: number; label: string }[]>([]);
   const [stock, setStock] = useState(0);
   const [precio, setPrecio] = useState(0);
   const [mensaje, setMensaje] = useState("");
   const [tipoMensaje, setTipoMensaje] = useState<"exito" | "error" | "">("");
 
+  interface Categoria {
+    id: number; // El ID de la categoría
+    descripcion: string; // La descripción de la categoría
+  }
+
+
   // Cargar las categorías desde el backend al cargar el componente
   useEffect(() => {
     const fetchCategorias = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/productos/obtenerCategorias");
-        setCategorias(response.data); // Establece las categorías desde la respuesta
+        // Recupera el token desde sessionStorage
+        const token = sessionStorage.getItem("token");
+        if (!token) throw new Error("Token no encontrado en sessionStorage.");
+
+        // Solicita las categorías con el token en el encabezado
+        const response = await axios.get<Categoria[]>(
+          "http://localhost:5000/api/productos/obtenerCategorias",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`, // Agregar el token aquí
+            },
+          }
+        );
+
+
+
+        const categoriasFormateadas = response.data.map((categoria: Categoria) => {
+          return ({
+            value: categoria.id, // ID de la categoría
+            label: categoria.descripcion, // Nombre de la categoría
+          });
+        });
+        setCategorias(categoriasFormateadas); // Establece las categorías desde la respuesta
       } catch (error) {
         console.error("Error al obtener las categorías:", error);
       }
@@ -32,15 +59,37 @@ const CrearProducto: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const producto = { nombre, marca, descripcion, categoria, stock, precio };
-
+  
+    // Estructurar el JSON en el formato esperado
+    const producto = {
+      nombre,
+      marca,
+      descripcion,
+      categoria: {
+        id: Number(categoria), // Convertir la categoría seleccionada (string) a número
+      },
+      stock,
+      precio,
+    };
+  
     try {
-      await axios.post("http://localhost:5000/api/productos/crearProductos", producto, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
+      // Recupera el token desde sessionStorage
+      const token = sessionStorage.getItem("token");
+      if (!token) throw new Error("Token no encontrado en sessionStorage.");
+  
+      // Envía la solicitud para registrar el producto
+      await axios.post(
+        "http://localhost:5000/api/productos/crearProductos",
+        producto,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // Agregar el token aquí
+          },
+        }
+      );
+  
+      // Éxito: restablecer los campos y mostrar mensaje
       setMensaje("Producto registrado con éxito");
       setTipoMensaje("exito");
       setNombre("");
@@ -50,19 +99,15 @@ const CrearProducto: React.FC = () => {
       setStock(0);
       setPrecio(0);
     } catch (error: any) {
-     // Revisa si hay una respuesta de error desde el backend
-  if (error.response) {
-    console.error("Respuesta de error del backend:", error.response);
-
-    // Verifica si el campo "error" está presente en la respuesta
-    const mensajeError = error.response.data?.error || "Debe completar los campos";
-    setMensaje(mensajeError);
-  } else {
-    console.error("Error sin respuesta del backend:", error);
-    setMensaje("Hubo un problema al registrar el producto");
-  }
-  setTipoMensaje("error");
-}
+      // Manejo de errores
+      if (error.response) {
+        const mensajeError = error.response.data?.error || "Debe completar los campos";
+        setMensaje(mensajeError);
+      } else {
+        setMensaje("Hubo un problema al registrar el producto");
+      }
+      setTipoMensaje("error");
+    }
   };
 
   return (
@@ -123,12 +168,10 @@ const CrearProducto: React.FC = () => {
                     id="categoria"
                     value={categoria}
                     onChange={(e) => setCategoria(e.target.value)}
-                    
                   >
                     <option disabled value="">Selecciona una categoría</option>
                     {categorias.map((cat) => (
-                      <option key={cat} value={cat}>{cat}
-                       </option>
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
                     ))}
                   </select>
                 </div>

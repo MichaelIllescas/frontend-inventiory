@@ -25,8 +25,30 @@ const TablaProductos: React.FC = () => {
   useEffect(() => {
     const obtenerProductos = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/api/productos/verProductos"); // URL de tu API
-        setProductos(response.data); // Actualiza el estado con los datos de la API
+        const token = sessionStorage.getItem("token");
+        const response = await axios.get("http://localhost:5000/api/productos/verProductos",{
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`, // Agregar el token aquí
+          },
+
+        });
+
+
+ // Mapear los productos para transformar `categoria` en un string
+ const productosFormateados = response.data.map((producto: any) => ({
+  id: producto.id,
+  nombre: producto.nombre,
+  marca: producto.marca,
+  descripcion: producto.descripcion,
+  categoria: producto.categoria.descripcion, // Extraer el nombre de la categoría
+  stock: producto.stock,
+  precio: producto.precio,
+}));
+
+setProductos(productosFormateados); // Actualiza el estado con los datos formateados
+
+
         setCargando(false);
       } catch (error) {
         console.error("Error al obtener productos:", error);
